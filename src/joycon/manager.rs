@@ -225,7 +225,6 @@ impl JoyConManager {
         }
 
         Ok(new_devices)
-    }
 
     /// Collection of managed JoyCons.
     /// It may contains disconnected ones.
