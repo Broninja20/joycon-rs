@@ -64,8 +64,6 @@ impl JoyConManager {
         self.new_devices.clone()
     }
 
-        /// Scan the JoyCon connected to your computer.
-    /// This returns new Joy-Cons.
     pub fn scan(&mut self) -> JoyConResult<Vec<Arc<Mutex<JoyConDevice>>>> {
         let hid_api = if let Some(hidapi) = &mut self.hid_api {
             hidapi.refresh_devices()?;
@@ -110,6 +108,7 @@ impl JoyConManager {
 
         Ok(new_devices)
     }
+}
 
 lazy_static! {
     pub static ref JOYCON_RECEIVER: Receiver<Arc<Mutex<JoyConDevice>>> = {
