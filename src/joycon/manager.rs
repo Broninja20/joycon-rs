@@ -10,7 +10,6 @@ use lazy_static::lazy_static;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct JoyConSerialNumber(pub String);
 
-/// A manager for dealing with Joy-Cons.
 pub struct JoyConManager {
     devices: HashMap<JoyConSerialNumber, Arc<Mutex<JoyConDevice>>>,
     hid_api: Option<HidApi>,
@@ -65,8 +64,6 @@ impl JoyConManager {
         self.new_devices.clone()
     }
 
-    /// Scan the JoyCon connected to your computer.
-    /// This returns new Joy-Cons.
     pub fn scan(&mut self) -> JoyConResult<Vec<Arc<Mutex<JoyConDevice>>>> {
         let hid_api = if let Some(hidapi) = &mut self.hid_api {
             hidapi.refresh_devices()?;
@@ -83,28 +80,31 @@ impl JoyConManager {
 
         for device_info in hid_api.device_list() {
             if device_info.vendor_id() == 0x057E {
-                // Intercept Switch 2 Joy-Cons and report them as original models
-                let mut product_id = device_info.product_id();
-                if product_id == 0x2066 {
-                    product_id = 0x2006; 
-                } else if product_id == 0x2067 {
-                    product_id = 0x2007; 
-                }
+                // Read incoming Product ID
+                let raw_pid = device_info.product_id();
+                
+                // Intercept and rewrite Switch 2 controllers right here
+                let product_id = if raw_pid == 0x2066 {
+                    0x2006 // Switch 2 Left -> Original Left
+                } else if raw_pid == 0x2067 {
+                    0x2007 // Switch 2 Right -> Original Right
+                } else {
+                    raw_pid // Leave original Switch hardware alone
+                };
 
-                match product_id {
-                    0x2006 | 0x2007 => {
-                        let serial_number = match device_info.serial_number() {
-                            Some(s) => JoyConSerialNumber(s.to_string()),
-                            None => continue,
-                        };
+                // Filter for valid Joy-Cons
+                if product_id == 0x2006 || product_id == 0x2007 {
+                    let serial_number = match device_info.serial_number() {
+                        Some(s) => JoyConSerialNumber(s.to_string()),
+                        None => continue,
+                    };
 
-                        if !self.devices.contains_key(&serial_number) {
-                            let device = Arc::new(Mutex::new(JoyConDevice::new(device_info, product_id)?));
-                            self.devices.insert(serial_number, Arc::clone(&device));
-                            new_devices.push(device);
-                        }
+                    if !self.devices.contains_key(&serial_number) {
+                        // Crucial patch: wrap product_id into the correct structural type expected by joycon-rs
+                        let device = Arc::new(Mutex::new(JoyConDevice::new(device_info, product_id.into())?));
+                        self.devices.insert(serial_number, Arc::clone(&device));
+                        new_devices.push(device);
                     }
-                    _ => {}
                 }
             }
         }
