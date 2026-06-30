@@ -277,7 +277,6 @@ impl JoyConManager {
     pub fn new_devices(&self) -> crossbeam_channel::Receiver<Arc<Mutex<JoyConDevice>>> {
         self.new_devices.clone()
     }
-}
 
 lazy_static! {
     pub static ref JOYCON_RECEIVER: crossbeam_channel::Receiver<Arc<Mutex<JoyConDevice>>> = {
