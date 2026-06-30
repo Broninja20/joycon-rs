@@ -122,7 +122,7 @@ impl JoyConManager {
     }
 
     
-       /// Scan the JoyCon connected to your computer.
+           /// Scan the JoyCon connected to your computer.
     /// This returns new Joy-Cons.
     pub fn scan(&mut self) -> JoyConResult<Vec<Arc<Mutex<JoyConDevice>>>> {
         let hid_api = if let Some(hidapi) = &mut self.hid_api {
@@ -141,39 +141,35 @@ impl JoyConManager {
         let mut new_devices = Vec::new();
 
         for device_info in hid_api.device_list() {
-            // 1. Check if it's an official Nintendo accessory
+            // 1. Check if the device belongs to Nintendo
             if device_info.vendor_id() == 0x057E {
                 
-                // 2. INTERCEPT SWITCH 2 PRODUCT IDs HERE
-                let mut product_id = device_info.product_id();
-                if product_id == 0x2066 {
-                    product_id = 0x2006; // Trick library: Switch 2 Left -> OG Left
-                } else if product_id == 0x2067 {
-                    product_id = 0x2007; // Trick library: Switch 2 Right -> OG Right
-                }
+                // 2. Intercept and smoothly override the Product IDs
+                let target_pid = match device_info.product_id() {
+                    0x2066 => 0x2006, // Convert Switch 2 Left to OG Left
+                    0x2067 => 0x2007, // Convert Switch 2 Right to OG Right
+                    original => original, // Leave original Switch gamepads alone
+                };
 
-                // 3. Match against our modified product_id variable
-                match product_id {
-                    0x2006 | 0x2007 => {
-                        let serial_number = match device_info.serial_number() {
-                            Some(s) => JoyConSerialNumber(s.to_string()),
-                            None => continue,
-                        };
+                // 3. Process the device using our safe target_pid format
+                if target_pid == 0x2006 || target_pid == 0x2007 {
+                    let serial_number = match device_info.serial_number() {
+                        Some(s) => JoyConSerialNumber(s.to_string()),
+                        None => continue,
+                    };
 
-                        if !self.devices.contains_key(&serial_number) {
-                            let device = Arc::new(Mutex::new(JoyConDevice::new(device_info, product_id)?));
-                            self.devices.insert(serial_number, Arc::clone(&device));
-                            new_devices.push(device);
-                        }
+                    if !self.devices.contains_key(&serial_number) {
+                        // Pass target_pid down to guarantee initialization compatibility
+                        let device = Arc::new(Mutex::new(JoyConDevice::new(device_info, target_pid)?));
+                        self.devices.insert(serial_number, Arc::clone(&device));
+                        new_devices.push(device);
                     }
-                    _ => {}
                 }
             }
         }
 
         Ok(new_devices)
     }
-
 
         let detected_devices = hid_api
             .device_list()
