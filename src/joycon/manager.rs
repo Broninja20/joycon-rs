@@ -99,11 +99,14 @@ impl JoyConManager {
                         None => continue,
                     };
 
-                    if !self.devices.contains_key(&serial_number) {
-                        // Crucial patch: wrap product_id into the correct structural type expected by joycon-rs
-                        let device = Arc::new(Mutex::new(JoyConDevice::new(device_info, product_id.into())?));
-                        self.devices.insert(serial_number, Arc::clone(&device));
-                        new_devices.push(device);
+                         if !self.devices.contains_key(&serial_number) {
+                            // Explicitly construct the JoyConProductId type instead of using .into()
+                            let pid_type = crate::joycon::JoyConProductId::from(product_id);
+                            let device = Arc::new(Mutex::new(JoyConDevice::new(device_info, pid_type)?));
+                            self.devices.insert(serial_number, Arc::clone(&device));
+                            new_devices.push(device);
+                        }
+
                     }
                 }
             }
