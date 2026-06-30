@@ -64,6 +64,8 @@ impl JoyConManager {
         self.new_devices.clone()
     }
 
+        /// Scan the JoyCon connected to your computer.
+    /// This returns new Joy-Cons.
     pub fn scan(&mut self) -> JoyConResult<Vec<Arc<Mutex<JoyConDevice>>>> {
         let hid_api = if let Some(hidapi) = &mut self.hid_api {
             hidapi.refresh_devices()?;
@@ -80,33 +82,27 @@ impl JoyConManager {
 
         for device_info in hid_api.device_list() {
             if device_info.vendor_id() == 0x057E {
-                // Read incoming Product ID
                 let raw_pid = device_info.product_id();
                 
-                // Intercept and rewrite Switch 2 controllers right here
                 let product_id = if raw_pid == 0x2066 {
-                    0x2006 // Switch 2 Left -> Original Left
+                    0x2006 
                 } else if raw_pid == 0x2067 {
-                    0x2007 // Switch 2 Right -> Original Right
+                    0x2007 
                 } else {
-                    raw_pid // Leave original Switch hardware alone
+                    raw_pid 
                 };
 
-                // Filter for valid Joy-Cons
                 if product_id == 0x2006 || product_id == 0x2007 {
                     let serial_number = match device_info.serial_number() {
                         Some(s) => JoyConSerialNumber(s.to_string()),
                         None => continue,
                     };
 
-                         if !self.devices.contains_key(&serial_number) {
-                            // Explicitly construct the JoyConProductId type instead of using .into()
-                            let pid_type = crate::joycon::JoyConProductId::from(product_id);
-                            let device = Arc::new(Mutex::new(JoyConDevice::new(device_info, pid_type)?));
-                            self.devices.insert(serial_number, Arc::clone(&device));
-                            new_devices.push(device);
-                        }
-
+                    if !self.devices.contains_key(&serial_number) {
+                        let pid_type = crate::joycon::JoyConProductId::from(product_id);
+                        let device = Arc::new(Mutex::new(JoyConDevice::new(device_info, pid_type)?));
+                        self.devices.insert(serial_number, Arc::clone(&device));
+                        new_devices.push(device);
                     }
                 }
             }
@@ -114,7 +110,6 @@ impl JoyConManager {
 
         Ok(new_devices)
     }
-}
 
 lazy_static! {
     pub static ref JOYCON_RECEIVER: Receiver<Arc<Mutex<JoyConDevice>>> = {
